@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Drowsiness Detection</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #020b18;
+            color: #ffffff;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ANIMATED BACKGROUND */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(0,100,255,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(0,200,255,0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(0,50,150,0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, rgba(13,17,23,0.95), rgba(22,27,34,0.95));
+            backdrop-filter: blur(20px);
+            padding: 14px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0,212,255,0.2);
+            box-shadow: 0 4px 40px rgba(0,100,255,0.15);
+            position: relative;
+            z-index: 10;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #00d4ff, #0066ff, #00d4ff, transparent);
+        }
+
+        .header-left { display: flex; align-items: center; gap: 15px; }
+
+        .logo {
+            width: 45px; height: 45px;
+            background: linear-gradient(135deg, #00d4ff, #0066ff);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+            box-shadow: 0 4px 20px rgba(0,212,255,0.4);
+        }
+
+        .header-title h1 {
+            font-size: 1.25rem;
+            background: linear-gradient(135deg, #00d4ff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-weight: 800;
+        }
+
+        .header-title .subtitle {
+            font-size: 0.68rem;
+            color: #4b5563;
+            margin-top: 2px;
+            letter-spacing: 1px;
+        }
+
+        .header-right { display: flex; align-items: center; gap: 20px; }
+
+        .live-badge {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            animation: pulseBadge 1.5s infinite;
+            letter-spacing: 1px;
+            box-shadow: 0 0 20px rgba(220,38,38,0.4);
+        }
+
+        @keyframes pulseBadge {
+            0%, 100% { box-shadow: 0 0 10px rgba(220,38,38,0.4); }
+            50% { box-shadow: 0 0 25px rgba(220,38,38,0.8); }
+        }
+
+        .clock-box {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #00d4ff;
+            letter-spacing: 2px;
+        }
+
+        /* MAIN */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 15px;
+            padding: 15px;
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* VIDEO */
+        .video-section {
+            background: #0d1117;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(0,212,255,0.15);
+            position: relative;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,255,0.05);
+            transition: border-color 0.3s;
+        }
+
+        .video-section.drowsy-border {
+            border-color: rgba(255,51,51,0.6) !important;
+            box-shadow: 0 0 40px rgba(255,51,51,0.3) !important;
+        }
+
+        .video-section img { width: 100%; height: auto; display: block; }
+
+        .video-overlay {
+            position: absolute;
+            top: 12px; right: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .overlay-badge {
+            background: rgba(0,0,0,0.75);
+            border: 1px solid rgba(0,212,255,0.2);
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 0.72rem;
+            color: #00d4ff;
+            backdrop-filter: blur(10px);
+            font-family: monospace;
+            letter-spacing: 1px;
+        }
+
+        /* DASHBOARD */
+        .dashboard { display: flex; flex-direction: column; gap: 12px; }
+
+        /* CARD */
+        .card {
+            background: linear-gradient(135deg, rgba(13,17,23,0.9), rgba(22,27,34,0.9));
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+            transition: border-color 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent);
+        }
+
+        .card-title {
+            font-size: 0.62rem;
+            color: #4b5563;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
+        }
+
+        /* STATUS */
+        .status-display {
+            font-size: 1.9rem;
+            font-weight: 900;
+            text-align: center;
+            padding: 14px;
+            border-radius: 12px;
+            transition: all 0.4s;
+            letter-spacing: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-display::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: inherit;
+            filter: blur(20px);
+            opacity: 0.3;
+            z-index: -1;
+        }
+
+        .status-ALERT {
+            color: #00ff88;
+            background: linear-gradient(135deg, rgba(0,255,136,0.08), rgba(0,255,136,0.03));
+            border: 1px solid rgba(0,255,136,0.25);
+            box-shadow: 0 0 30px rgba(0,255,136,0.15), inset 0 0 30px rgba(0,255,136,0.03);
+        }
+
+        .status-TIRED {
+            color: #ffaa00;
+            background: linear-gradient(135deg, rgba(255,170,0,0.08), rgba(255,170,0,0.03));
+            border: 1px solid rgba(255,170,0,0.25);
+            box-shadow: 0 0 30px rgba(255,170,0,0.15), inset 0 0 30px rgba(255,170,0,0.03);
+        }
+
+        .status-DROWSY {
+            color: #ff3333;
+            background: linear-gradient(135deg, rgba(255,51,51,0.12), rgba(255,51,51,0.05));
+            border: 1px solid rgba(255,51,51,0.4);
+            box-shadow: 0 0 40px rgba(255,51,51,0.3), inset 0 0 40px rgba(255,51,51,0.05);
+            animation: drowsyPulse 0.6s infinite;
+        }
+
+        .status-STANDBY {
+            color: #4b5563;
+            background: rgba(75,85,99,0.05);
+            border: 1px solid rgba(75,85,99,0.15);
+        }
+
+        @keyframes drowsyPulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(255,51,51,0.2); }
+            50% { box-shadow: 0 0 60px rgba(255,51,51,0.5); }
+        }
+
+        /* GAUGE */
+        .gauge-container { display: flex; flex-direction: column; align-items: center; }
+        .gauge-wrapper { position: relative; width: 200px; height: 115px; overflow: hidden; }
+        .gauge-label { font-size: 0.65rem; color: #4b5563; margin-top: 6px; letter-spacing: 3px; text-transform: uppercase; }
+
+        /* FACTORS */
+        .factor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .factor-box {
+            background: linear-gradient(135deg, rgba(22,27,34,0.8), rgba(31,41,55,0.5));
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .factor-box:hover { border-color: rgba(0,212,255,0.2); }
+
+        .factor-box-label { font-size: 0.62rem; color: #4b5563; letter-spacing: 1.5px; text-transform: uppercase; }
+        .factor-box-value { font-size: 1rem; font-weight: 700; transition: color 0.3s; }
+
+        .val-good { color: #00ff88; text-shadow: 0 0 10px rgba(0,255,136,0.3); }
+        .val-bad  { color: #ff3333; text-shadow: 0 0 10px rgba(255,51,51,0.3); }
+        .val-warn { color: #ffaa00; text-shadow: 0 0 10px rgba(255,170,0,0.3); }
+        .val-info { color: #00d4ff; text-shadow: 0 0 10px rgba(0,212,255,0.3); }
+
+        /* STATS */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .stat-box {
+            background: linear-gradient(135deg, rgba(22,27,34,0.8), rgba(31,41,55,0.5));
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.06);
+            transition: all 0.3s;
+        }
+
+        .stat-box:hover { border-color: rgba(0,212,255,0.2); transform: translateY(-2px); }
+
+        .stat-value { font-size: 1.7rem; font-weight: 800; font-family: monospace; }
+        .stat-value.blue  { color: #00d4ff; text-shadow: 0 0 15px rgba(0,212,255,0.4); }
+        .stat-value.red   { color: #ff3333; text-shadow: 0 0 15px rgba(255,51,51,0.4); }
+        .stat-label { font-size: 0.62rem; color: #4b5563; margin-top: 4px; letter-spacing: 1.5px; text-transform: uppercase; }
+
+        /* GRAPH */
+        .graph-section { grid-column: 1 / -1; }
+        .graph-inner { display: grid; grid-template-columns: 2fr 1fr; gap: 15px; align-items: center; }
+        .pie-container { display: flex; align-items: center; justify-content: center; height: 160px; }
+
+        /* ALERT LOG */
+        .alert-log { max-height: 115px; overflow-y: auto; }
+
+        .alert-item {
+            padding: 7px 12px;
+            margin-bottom: 5px;
+            background: rgba(255,51,51,0.07);
+            border-left: 3px solid #ff3333;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: #ff9999;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .no-alerts { color: #374151; font-size: 0.8rem; text-align: center; padding: 18px; }
+
+        /* BUTTONS */
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .btn-start {
+            padding: 13px;
+            background: linear-gradient(135deg, #16a34a, #14532d);
+            color: white; border: none; border-radius: 12px;
+            font-size: 0.85rem; font-weight: 700; cursor: pointer;
+            letter-spacing: 2px; text-transform: uppercase;
+            transition: all 0.25s;
+            box-shadow: 0 4px 20px rgba(22,163,74,0.3);
+        }
+
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(22,163,74,0.5);
+        }
+
+        .btn-start:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+        .btn-stop {
+            padding: 13px;
+            background: linear-gradient(135deg, #dc2626, #7f1d1d);
+            color: white; border: none; border-radius: 12px;
+            font-size: 0.85rem; font-weight: 700; cursor: pointer;
+            letter-spacing: 2px; text-transform: uppercase;
+            transition: all 0.25s;
+            box-shadow: 0 4px 20px rgba(220,38,38,0.3);
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(220,38,38,0.5);
+        }
+
+        .btn-stop:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+        .btn-voice {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #7c3aed, #4c1d95);
+            color: white; border: none; border-radius: 12px;
+            font-size: 0.85rem; font-weight: 700; cursor: pointer;
+            letter-spacing: 1px; transition: all 0.25s;
+            box-shadow: 0 4px 20px rgba(124,58,237,0.3);
+            margin-top: 10px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        .btn-voice:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,58,237,0.5); }
+        .btn-voice.voice-on { background: linear-gradient(135deg, #dc2626, #991b1b); box-shadow: 0 4px 20px rgba(220,38,38,0.3); }
+
+        .voice-status {
+            text-align: center;
+            font-size: 0.72rem;
+            color: #4b5563;
+            margin-top: 8px;
+            transition: color 0.3s;
+            letter-spacing: 1px;
+        }
+
+        .voice-commands-list {
+            display: none;
+            margin-top: 10px;
+            background: rgba(22,27,34,0.8);
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 0.72rem;
+            color: #6b7280;
+            border: 1px solid rgba(124,58,237,0.2);
+            line-height: 2;
+        }
+
+        .voice-commands-list.show { display: block; }
+
+        /* MIC PULSE */
+        .mic-pulse {
+            width: 10px; height: 10px;
+            background: #ff3333;
+            border-radius: 50%;
+            animation: micPulse 1s infinite;
+        }
+
+        @keyframes micPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+        }
+
+        /* TOAST NOTIFICATION */
+        .toast {
+            position: fixed;
+            top: 80px; right: 20px;
+            background: linear-gradient(135deg, rgba(255,51,51,0.95), rgba(180,20,20,0.95));
+            color: white;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            z-index: 9999;
+            display: none;
+            box-shadow: 0 8px 30px rgba(255,51,51,0.4);
+            border: 1px solid rgba(255,100,100,0.3);
+            animation: slideIn 0.3s ease;
+            max-width: 280px;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
+        }
+
+        /* DROWSY OVERLAY */
+        .drowsy-warning {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 998;
+        }
+
+        .drowsy-warning.show {
+            display: block;
+            box-shadow: inset 0 0 80px rgba(255,0,0,0.25);
+            animation: borderPulse 0.6s infinite;
+        }
+
+        @keyframes borderPulse {
+            0%, 100% { box-shadow: inset 0 0 60px rgba(255,0,0,0.2); }
+            50% { box-shadow: inset 0 0 120px rgba(255,0,0,0.45); }
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,212,255,0.3); }
+    </style>
+</head>
+<body>
+
+<div class="drowsy-warning" id="drowsyWarning"></div>
+<div class="toast" id="toastAlert">⚠️ DROWSINESS DETECTED! Please take a break.</div>
+
+<!-- HEADER -->
+<div class="header">
+    <div class="header-left">
+        <div class="logo">🚗</div>
+        <div class="header-title">
+            <h1>Driver Drowsiness Detection</h1>
+            <div class="subtitle">AI-Powered Real-Time Safety System &nbsp;•&nbsp; MediaPipe + MobileNetV2 &nbsp;•&nbsp; 98.33% Accuracy</div>
+        </div>
+    </div>
+    <div class="header-right">
+        <div class="clock-box" id="clockDisplay">--:--:--</div>
+        <div class="live-badge">● LIVE</div>
+    </div>
+</div>
+
+<div class="main">
+
+    <!-- VIDEO -->
+    <div class="video-section" id="videoSection">
+        <img id="videoFeed" src="/video_feed" alt="Video Feed">
+        <div class="video-overlay">
+            <div class="overlay-badge" id="earBadge">EAR: 0.000</div>
+            <div class="overlay-badge" id="marBadge">MAR: 0.000</div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="dashboard">
+
+        <!-- STATUS -->
+        <div class="card">
+            <div class="card-title">Driver Status</div>
+            <div class="status-display status-STANDBY" id="statusDisplay">STANDBY</div>
+        </div>
+
+        <!-- GAUGE -->
+        <div class="card">
+            <div class="card-title">Drowsiness Score</div>
+            <div class="gauge-container">
+                <div class="gauge-wrapper">
+                    <canvas id="gaugeCanvas" width="200" height="115"></canvas>
+                </div>
+                <div class="gauge-label">Drowsiness Level</div>
+            </div>
+        </div>
+
+        <!-- FACTORS -->
+        <div class="card">
+            <div class="card-title">Detection Factors</div>
+            <div class="factor-grid">
+                <div class="factor-box">
+                    <div class="factor-box-label">👁️ Eyes</div>
+                    <div class="factor-box-value val-info" id="eyeStatus">---</div>
+                </div>
+                <div class="factor-box">
+                    <div class="factor-box-label">👄 Yawn</div>
+                    <div class="factor-box-value val-info" id="yawnStatus">---</div>
+                </div>
+                <div class="factor-box">
+                    <div class="factor-box-label">📊 EAR Value</div>
+                    <div class="factor-box-value val-info" id="earValue">0.000</div>
+                </div>
+                <div class="factor-box">
+                    <div class="factor-box-label">📊 MAR Value</div>
+                    <div class="factor-box-value val-info" id="marValue">0.000</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATS -->
+        <div class="card">
+            <div class="card-title">Session Statistics</div>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value blue" id="sessionTime">00:00</div>
+                    <div class="stat-label">Drive Time</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value red" id="alertCount">0</div>
+                    <div class="stat-label">Total Alerts</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALERT LOG -->
+        <div class="card">
+            <div class="card-title">Alert History</div>
+            <div class="alert-log" id="alertLog">
+                <div class="no-alerts">No alerts yet — drive safe! 🟢</div>
+            </div>
+        </div>
+
+        <!-- BUTTONS -->
+        <div class="btn-row">
+            <button class="btn-start" id="btnStart" onclick="startDetection()">▶ Start</button>
+            <button class="btn-stop"  id="btnStop"  onclick="stopDetection()" disabled>⏹ Stop</button>
+        </div>
+        <a href="/simulation" target="_blank" style="display:block; width:100%; padding:12px; background:linear-gradient(135deg,#0066ff,#003399); color:white; border:none; border-radius:12px; font-size:0.85rem; font-weight:700; cursor:pointer; letter-spacing:2px; text-transform:uppercase; transition:all 0.25s; box-shadow:0 4px 20px rgba(0,102,255,0.3); text-align:center; text-decoration:none; margin-top:10px;">🚗 Open Driving Simulation</a>
+
+        <!-- VOICE -->
+        <button class="btn-voice" id="btnVoice" onclick="toggleVoice()">
+            <span>🎤</span> <span id="voiceBtnText">Enable Voice Commands</span>
+        </button>
+        <div class="voice-status" id="voiceStatus">Voice control inactive</div>
+        <div class="voice-commands-list" id="voiceCmdList">
+            <div style="color:#00d4ff; font-weight:bold; margin-bottom:4px;">Available Commands:</div>
+            <div>🗣️ "I'm okay" → Reset alert</div>
+            <div>🗣️ "Start session" → Start detection</div>
+            <div>🗣️ "Stop session" → Stop detection</div>
+            <div>🗣️ "What's my score" → Hear score</div>
+            <div>🗣️ "How long" → Hear drive time</div>
+            <div>🗣️ "How many alerts" → Hear alert count</div>
+            <div>🗣️ "Take a break" → Safety reminder</div>
+            <div>🗣️ "Session summary" → Full summary</div>
+        </div>
+
+    </div>
+
+    <!-- GRAPH SECTION -->
+    <div class="card graph-section">
+        <div class="card-title">Real-Time Drowsiness Monitor</div>
+        <div class="graph-inner">
+            <canvas id="lineChart" height="110"></canvas>
+            <div>
+                <div class="card-title">Session Breakdown</div>
+                <div class="pie-container">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ================================================
+// CLOCK
+// ================================================
+function updateClock() {
+    const now = new Date();
+    document.getElementById('clockDisplay').textContent =
+        now.toLocaleTimeString('en-US', {hour12: false});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ================================================
+// GAUGE
+// ================================================
+const gCtx = document.getElementById('gaugeCanvas').getContext('2d');
+
+function drawGauge(score) {
+    gCtx.clearRect(0, 0, 200, 115);
+    const cx = 100, cy = 105, r = 82;
+
+    // Track
+    gCtx.beginPath();
+    gCtx.arc(cx, cy, r, Math.PI, 2 * Math.PI);
+    gCtx.lineWidth = 16;
+    gCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+    gCtx.stroke();
+
+    // Zones
+    const zones = [
+        { start: 0,    end: 0.4,  color: 'rgba(0,255,136,0.15)' },
+        { start: 0.4,  end: 0.7,  color: 'rgba(255,170,0,0.15)' },
+        { start: 0.7,  end: 1.0,  color: 'rgba(255,51,51,0.15)' },
+    ];
+    zones.forEach(z => {
+        gCtx.beginPath();
+        gCtx.arc(cx, cy, r, Math.PI + z.start * Math.PI, Math.PI + z.end * Math.PI);
+        gCtx.lineWidth = 16;
+        gCtx.strokeStyle = z.color;
+        gCtx.stroke();
+    });
+
+    // Score fill
+    const angle = Math.PI + (score / 100) * Math.PI;
+    let color;
+    if (score < 40) color = '#00ff88';
+    else if (score < 70) color = '#ffaa00';
+    else color = '#ff3333';
+
+    gCtx.beginPath();
+    gCtx.arc(cx, cy, r, Math.PI, angle);
+    gCtx.lineWidth = 16;
+    gCtx.strokeStyle = color;
+    gCtx.lineCap = 'round';
+    gCtx.shadowColor = color;
+    gCtx.shadowBlur = 15;
+    gCtx.stroke();
+    gCtx.shadowBlur = 0;
+
+    // Score text
+    gCtx.fillStyle = color;
+    gCtx.font = 'bold 30px Segoe UI';
+    gCtx.textAlign = 'center';
+    gCtx.fillText(score + '%', cx, cy - 15);
+
+    gCtx.fillStyle = 'rgba(255,255,255,0.3)';
+    gCtx.font = '10px Segoe UI';
+    gCtx.fillText('0', 16, cy + 5);
+    gCtx.fillText('100', 180, cy + 5);
+}
+drawGauge(0);
+
+// ================================================
+// LINE CHART
+// ================================================
+const lineCtx = document.getElementById('lineChart').getContext('2d');
+const scoreHistory = Array(60).fill(0);
+
+const lineChart = new Chart(lineCtx, {
+    type: 'line',
+    data: {
+        labels: Array(60).fill(''),
+        datasets: [{
+            data: scoreHistory,
+            borderColor: '#00d4ff',
+            backgroundColor: (ctx) => {
+                const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 200);
+                gradient.addColorStop(0, 'rgba(0,212,255,0.15)');
+                gradient.addColorStop(1, 'rgba(0,212,255,0)');
+                return gradient;
+            },
+            borderWidth: 2.5,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 0 },
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { display: false },
+            y: {
+                min: 0, max: 100,
+                grid: { color: 'rgba(255,255,255,0.04)' },
+                ticks: { color: '#374151', font: { size: 9 }, callback: v => v + '%' },
+                border: { color: 'rgba(255,255,255,0.06)' }
+            }
+        }
+    }
+});
+
+// ================================================
+// PIE CHART
+// ================================================
+const pieCtx = document.getElementById('pieChart').getContext('2d');
+let alertTime = 0, tiredTime = 0, alertOkTime = 1;
+
+const pieChart = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Alert', 'Tired', 'Drowsy'],
+        datasets: [{
+            data: [1, 0, 0],
+            backgroundColor: ['rgba(0,255,136,0.8)', 'rgba(255,170,0,0.8)', 'rgba(255,51,51,0.8)'],
+            borderColor: '#020b18',
+            borderWidth: 3,
+            hoverOffset: 8
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '65%',
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { color: '#6b7280', font: { size: 10 }, padding: 12, usePointStyle: true }
+            }
+        }
+    }
+});
+
+// ================================================
+// TOAST
+// ================================================
+let toastTimer = null;
+function showToast(msg) {
+    const toast = document.getElementById('toastAlert');
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+}
+
+// ================================================
+// START / STOP
+// ================================================
+function startDetection() {
+    fetch('/start').then(r => r.json()).then(() => {
+        document.getElementById('btnStart').disabled = true;
+        document.getElementById('btnStop').disabled  = false;
+    });
+}
+
+function stopDetection() {
+    fetch('/stop').then(r => r.json()).then(() => {
+        document.getElementById('btnStart').disabled = false;
+        document.getElementById('btnStop').disabled  = true;
+    });
+}
+
+// ================================================
+// VOICE TOGGLE
+// ================================================
+let voiceActive = false;
+
+function toggleVoice() {
+    const btn     = document.getElementById('btnVoice');
+    const btnText = document.getElementById('voiceBtnText');
+    const status  = document.getElementById('voiceStatus');
+    const cmds    = document.getElementById('voiceCmdList');
+
+    if (!voiceActive) {
+        fetch('/start_voice').then(r => r.json()).then(() => {
+            voiceActive = true;
+            btnText.textContent = 'Disable Voice Commands';
+            btn.classList.add('voice-on');
+            btn.innerHTML = '<span class="mic-pulse"></span><span>Disable Voice Commands</span>';
+            status.textContent = '🎤 Listening for commands...';
+            status.style.color = '#00ff88';
+            cmds.classList.add('show');
+        });
+    } else {
+        fetch('/stop_voice').then(r => r.json()).then(() => {
+            voiceActive = false;
+            btn.innerHTML = '<span>🎤</span><span id="voiceBtnText">Enable Voice Commands</span>';
+            btn.classList.remove('voice-on');
+            status.textContent = 'Voice control inactive';
+            status.style.color = '#4b5563';
+            cmds.classList.remove('show');
+        });
+    }
+}
+
+// ================================================
+// UPDATE DASHBOARD
+// ================================================
+let lastStatus = '';
+let lastAlerts = 0;
+
+function updateStats() {
+    fetch('/stats')
+        .then(r => r.json())
+        .then(data => {
+            const score  = data.score;
+            const status = data.status;
+
+            // Status card
+            const statusEl = document.getElementById('statusDisplay');
+            statusEl.textContent = status;
+            statusEl.className   = 'status-display status-' + status;
+
+            // Video border
+            const videoEl = document.getElementById('videoSection');
+            if (status === 'DROWSY') videoEl.classList.add('drowsy-border');
+            else videoEl.classList.remove('drowsy-border');
+
+            // Gauge
+            drawGauge(score);
+
+            // Line chart color
+            let lc = score < 40 ? '#00ff88' : score < 70 ? '#ffaa00' : '#ff3333';
+            lineChart.data.datasets[0].borderColor = lc;
+            scoreHistory.push(score);
+            scoreHistory.shift();
+            lineChart.update('none');
+
+            // Pie
+            if (status === 'ALERT') alertOkTime++;
+            else if (status === 'TIRED') tiredTime++;
+            else if (status === 'DROWSY') alertTime++;
+            pieChart.data.datasets[0].data = [alertOkTime, tiredTime, alertTime];
+            pieChart.update('none');
+
+            // Eyes
+            const eyeEl = document.getElementById('eyeStatus');
+            eyeEl.textContent = data.eye_status;
+            eyeEl.className   = 'factor-box-value ' + (data.eye_status === 'OPEN' ? 'val-good' : data.eye_status === '---' ? 'val-info' : 'val-bad');
+
+            // Yawn
+            const yawnEl = document.getElementById('yawnStatus');
+            yawnEl.textContent = data.yawn_status;
+            yawnEl.className   = 'factor-box-value ' + (data.yawn_status === 'NO YAWN' ? 'val-good' : data.yawn_status === '---' ? 'val-info' : 'val-warn');
+
+            // EAR MAR
+            const earVal = parseFloat(data.ear);
+            const marVal = parseFloat(data.mar);
+            const earEl  = document.getElementById('earValue');
+            const marEl  = document.getElementById('marValue');
+            earEl.textContent = data.ear;
+            marEl.textContent = data.mar;
+            earEl.className   = 'factor-box-value ' + (earVal < 0.25 && earVal > 0 ? 'val-bad' : 'val-info');
+            marEl.className   = 'factor-box-value ' + (marVal > 0.6 ? 'val-warn' : 'val-info');
+            document.getElementById('earBadge').textContent = 'EAR: ' + data.ear;
+            document.getElementById('marBadge').textContent = 'MAR: ' + data.mar;
+
+            // Stats
+            document.getElementById('sessionTime').textContent = data.session_time;
+            document.getElementById('alertCount').textContent  = data.alerts;
+
+            // Alert log
+            const logEl = document.getElementById('alertLog');
+            if (data.alert_log.length === 0) {
+                logEl.innerHTML = '<div class="no-alerts">No alerts yet — drive safe! 🟢</div>';
+            } else {
+                logEl.innerHTML = data.alert_log.slice().reverse()
+                    .map(a => `<div class="alert-item">⚠️ ${a}</div>`).join('');
+            }
+
+            // Toast on new alert
+            if (data.alerts > lastAlerts) {
+                showToast('⚠️ DROWSINESS ALERT #' + data.alerts + ' — Please take a break!');
+                lastAlerts = data.alerts;
+            }
+
+            // Drowsy warning overlay
+            const warn = document.getElementById('drowsyWarning');
+            if (status === 'DROWSY') warn.classList.add('show');
+            else warn.classList.remove('show');
+
+            // Tab title
+            document.title = status === 'DROWSY' ? '⚠️ DROWSY!' : 'Driver Drowsiness Detection';
+
+            lastStatus = status;
+        })
+        .catch(err => console.log('err:', err));
+}
+
+setInterval(updateStats, 800);
+updateStats();
+</script>
+</body>
+</html>
