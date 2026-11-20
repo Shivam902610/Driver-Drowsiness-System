@@ -1,86 +1,150 @@
-Driver Drowsiness Detection System
-A real-time driver drowsiness monitoring prototype built using deep learning and computer vision. The system analyses eye state and facial landmarks from a webcam feed, estimates signs of drowsiness, and displays the results through a Flask-based web interface.
-Features
-- Eye-state classification: Uses a trained MobileNetV2-based model to classify eye images as open or closed.
-- Facial landmark detection: Uses MediaPipe to detect facial landmarks.
-- Drowsiness indicators: Uses Eye Aspect Ratio (EAR), Mouth Aspect Ratio (MAR), and PERCLOS-based eye-closure information.
-- Live monitoring: Captures webcam frames using OpenCV.
-- Web dashboard: Displays the camera feed and drowsiness-related information through a Flask application.
-- Alerts and voice commands: Includes visual notifications and browser/application voice-command functionality, as implemented in the project.
-- Driving simulation: Demonstrates different alertness states in a simulated environment. It does not control a real vehicle.
-Technologies Used
+# Driver Drowsiness Detection System
+
+An AI-powered driver drowsiness detection prototype that combines deep learning and computer vision to monitor driver alertness in real time. The system analyses eye state and facial landmarks through a webcam and displays drowsiness information on a Flask-based dashboard.
+
+## Features
+
+- **Eye State Classification:** Uses a trained MobileNetV2-based model to classify eye images as open or closed.
+- **Facial Landmark Detection:** Uses MediaPipe Face Mesh to detect facial landmarks.
+- **Drowsiness Indicators:** Uses Eye Aspect Ratio (EAR), Mouth Aspect Ratio (MAR), and eye-closure information to assess driver alertness.
+- **Real-Time Monitoring:** Captures webcam frames using OpenCV.
+- **Web Dashboard:** Displays the camera feed, driver status, drowsiness score, session statistics, and alert history.
+- **Alert System:** Provides visual notifications when drowsiness is detected.
+- **Voice Commands:** Supports browser/application voice-control functionality.
+- **Driving Simulation:** Demonstrates vehicle behaviour and simulated responses to different alertness states. It does not control a real vehicle.
+- **Model Analysis:** Includes model comparison, confusion matrix, classification report, and Grad-CAM visualization.
+
+## Technologies Used
+
 - Python
 - TensorFlow / Keras
 - MobileNetV2
-- OpenCV
 - MediaPipe
+- OpenCV
 - Flask
-- NumPy and SciPy
+- Flask-SocketIO
+- NumPy
+- SciPy
 - Scikit-learn
-- HTML, CSS and JavaScript
+- HTML, CSS, JavaScript
 - Chart.js
-Project Files
-The repository includes the application and supporting scripts, trained model files, visualisation outputs, and documentation. Important files include:
-File	Purpose
-app.py	Main Flask web application
-train_model.py	Script for training the eye-state classification model
-model_analysis.py	Model evaluation and visualisation script
-detect_realtime.py	Real-time detection support script
-voice_commands.py	Voice-command functionality
-drowsiness_model.keras	Trained model used by the application
-requirements.txt	Python package dependencies
 
+## Model Information
 
-Other model files and PNG outputs in the repository are retained for comparison, analysis, or visualisation.
-Requirements
-- Python 3.10 is recommended.
-- A working webcam is required for live monitoring.
-- Windows, Linux, or macOS with compatible Python packages.
-Installation
-1. Clone the repository:
-   git clone https://github.com/Shivam902610/Driver-Drowsiness-System.git
-   cd Driver-Drowsiness-System
-2. (Recommended) Create and activate a virtual environment:
-   Windows
-   python -m venv venv
-   venv\Scripts\activate
-   Linux / macOS
-   python3 -m venv venv
-   source venv/bin/activate
-3. Install the dependencies:
-   python -m pip install --upgrade pip
-   python -m pip install -r requirements.txt
-   Some audio or webcam-related packages may require operating-system-specific setup.
-Running the Application
-1. Make sure the trained model file drowsiness_model.keras is present in the location expected by app.py.
-2. Connect or enable your webcam.
-3. Start the application:
-   python app.py
-4. Open the local address printed in the terminal (commonly http://127.0.0.1:5000) in your browser.
-5. Allow camera access if the browser requests permission, then use the dashboard controls to start monitoring.
-If the application reports a missing module or model file, check that the dependency is installed and that the required file is in the expected path.
-Dataset and Model Training
-The training script is configured to load the eye-image dataset from a local Drowsiness_dataset directory, with open_eyes and close_eyes class folders.
+The project uses MobileNetV2 with transfer learning for eye-state classification.
 
-Expected layout:
-Drowsiness_dataset/
-├── open_eyes/
-└── close_eyes/
-The training workflow resizes images to 64 × 64 pixels, converts them to RGB, normalises pixel values, and uses a stratified training/validation/test split. The MobileNetV2 base is first used with its pretrained layers frozen, followed by fine-tuning with a lower learning rate.
+- Dataset: MRL Eye Dataset
+- Classes: Open Eyes and Closed Eyes
+- Input Image Size: 64 × 64 pixels
+- Preprocessing: Image resizing, RGB conversion, and normalization
+- Output: Eye-state prediction
 
-The dataset itself is not included in this repository. Place the dataset in the expected local folder before running train_model.py. Training is not required to run the application if the trained model file is already available.
+The dashboard currently displays a reported accuracy of 98.33%. Refer to the model evaluation files for the corresponding experimental results.
 
-To train the model:
-python train_model.py
-To run the analysis script:
-python model_analysis.py
-The analysis script expects the dataset and trained model at the paths configured inside that script.
-Model Results
-The project presentation reports 98.33% accuracy for MobileNetV2 in its model-comparison experiment. It also presents a separate evaluation on 600 images reporting 98.67% accuracy. These are results from separate reported evaluations and should not be interpreted as one experiment.
-Limitations
-- Results can be affected by lighting, camera quality, face position, and visibility of facial landmarks.
-- The prototype is intended for demonstration and educational use.
-- The driving simulation is visual only; the system does not operate vehicle controls or provide a certified safety function.
-- Performance should be tested under varied real-world conditions before any practical safety use.
-License
-See the LICENSE file in this repository.
+## Project Structure
+
+```text
+Driver-Drowsiness-System/
+│
+├── app.py
+├── train_model.py
+├── model_analysis.py
+├── compare_models.py
+├── detect_realtime.py
+├── voice_commands.py
+│
+├── drowsiness_model.keras
+├── best_model.keras
+├── resnet50_model.h5
+├── basic_cnn_model.h5
+├── efficientnet_model.keras
+│
+├── templates/
+│   ├── index.html
+│   └── simulation.html
+│
+├── confusion_matrix.png
+├── classification_report.png
+├── gradcam_visualization.png
+├── model_comparison.png
+├── training_results.png
+│
+├── requirements.txt
+├── README.md
+└── LICENSE
+```
+
+## Installation and Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Shivam902610/Driver-Drowsiness-System.git
+```
+
+### 2. Navigate to the project directory
+
+```bash
+cd Driver-Drowsiness-System
+```
+
+### 3. Create a virtual environment
+
+```bash
+python -m venv drowsiness_env
+```
+
+### 4. Activate the environment
+
+**Windows PowerShell:**
+
+```powershell
+.\drowsiness_env\Scripts\Activate.ps1
+```
+
+### 5. Install dependencies
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 6. Run the application
+
+```bash
+python app.py
+```
+
+### 7. Open the dashboard
+
+Visit:
+
+```text
+http://localhost:5000
+```
+
+Allow webcam access if prompted.
+
+## Usage
+
+1. Start the Flask application.
+2. Open the dashboard in your browser.
+3. Click **Start** to begin drowsiness monitoring.
+4. Observe the live webcam feed and detection indicators.
+5. Enable voice commands if required.
+6. Open the driving simulation to see the simulated response to driver alertness states.
+
+## Important Notes
+
+- The trained model and dataset must be available at the paths expected by the application.
+- The dataset is not included in this repository.
+- Webcam access is required for real-time monitoring.
+- The driving simulation is a demonstration only. It does not interact with or control a physical vehicle.
+- This project is an academic prototype and is not a certified automotive safety system.
+
+## GitHub Repository
+
+[Driver Drowsiness Detection System](https://github.com/Shivam902610/Driver-Drowsiness-System)
+
+## Author
+
+**Shivam Singh**
