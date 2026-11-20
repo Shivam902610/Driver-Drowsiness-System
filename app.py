@@ -1,3 +1,6 @@
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, Response, jsonify
 import cv2
 import numpy as np
@@ -8,6 +11,10 @@ import threading
 from datetime import datetime
 from scipy.spatial import distance
 from voice_commands import VoiceCommandHandler
+
+SENDER_EMAIL = "rajveersingh998414@gmail.com"
+SENDER_PASSWORD = "vmpsqgcrsuwvexbl"
+RECEIVER_EMAIL = "shivamsingh90261058@gmail.com"
 
 app = Flask(__name__)
 
@@ -101,6 +108,38 @@ def predict_eye(eye_img):
 # ================================================
 # FRAME PROCESSING
 # ================================================
+def send_emergency_email(status, score, ts):
+    try:
+        subject = "Drowsiness Alert!"
+
+        body = f"""
+Driver Drowsiness Detected!
+
+Status: {status}
+Score: {score}%
+Time: {ts}
+
+Please check on the driver immediately.
+"""
+
+        msg = MIMEMultipart()
+        msg["From"] = SENDER_EMAIL
+        msg["To"] = RECEIVER_EMAIL
+        msg["Subject"] = subject
+
+        msg.attach(MIMEText(body, "plain"))
+
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+
+        print("Emergency email sent!")
+
+    except Exception as e:
+        print("Email Error:", e)
+
 def process_frame(frame):
     global consec_eye_closed, consec_yawn, alert_triggered, ear_history
 
@@ -159,21 +198,45 @@ def process_frame(frame):
         state["score"] = int(eye_score + yawn_score + perc_score)
         state["ear"]   = round(ear_avg, 3)
         state["mar"]   = round(mar_val, 3)
+    # else:
+    #     state["score"] = max(0, state["score"] - 1)
     else:
-        state["score"] = max(0, state["score"] - 1)
+        state["score"] = 0
+        state["status"] = "STANDBY"
+        state["ear"] = 0.0
+        state["mar"] = 0.0
+        state["eye_status"] = "---"
+        state["yawn_status"] = "---"
 
-    if state["score"] >= 70:
+        consec_eye_closed = 0
+        consec_yawn = 0
+        ear_history.clear()
+
+
+    if not face_found:
+        state["status"] = "STANDBY"
+
+    elif state["score"] >= 70:
         state["status"] = "DROWSY"
+        
     elif state["score"] >= 40:
         state["status"] = "TIRED"
+
     else:
         state["status"] = "ALERT"
 
-    if state["score"] >= 70 and not alert_triggered:
+    if state["score"] >= 65 and not alert_triggered:
         alert_triggered = True
         state["alerts"] += 1
         ts = datetime.now().strftime("%H:%M:%S")
         state["alert_log"].append(f"{ts} — Alert #{state['alerts']}")
+
+        threading.Thread(
+            target=send_emergency_email,
+            args=(state["status"], state["score"], ts),
+            daemon=True
+        ).start()
+       
         if len(state["alert_log"]) > 10:
             state["alert_log"].pop(0)
 
@@ -277,11 +340,31 @@ def start():
         print("Detection started!")
     return jsonify({"message": "Started", "running": True})
 
+# @app.route('/stop')
+# def stop():
+#     state["running"] = False
+#     print("Detection stopped!")
+#     return jsonify({"message": "Stopped", "running": False})
 @app.route('/stop')
 def stop():
     state["running"] = False
+
+    state["score"] = 0
+    state["status"] = "STANDBY"
+    state["ear"] = 0.0
+    state["mar"] = 0.0
+    state["eye_status"] = "---"
+    state["yawn_status"] = "---"
+    state["alerts"] = 0
+    state["session_time"] = 0
+    state["alert_log"] = []
+
     print("Detection stopped!")
-    return jsonify({"message": "Stopped", "running": False})
+
+    return jsonify({
+        "message": "Stopped",
+        "running": False
+    })
 
 @app.route('/start_voice')
 def start_voice():

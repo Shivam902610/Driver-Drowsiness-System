@@ -375,7 +375,10 @@
     </div>
 </div>
 
+<!-- REPLACE ONLY THIS PART -->
+
 <script>
+
 // ================================================
 // ROAD CANVAS SETUP
 // ================================================
@@ -393,75 +396,112 @@ window.addEventListener('resize', resizeCanvas);
 // SIMULATION STATE
 // ================================================
 let simState = {
-    status:    'ALERT',
-    score:     0,
-    speed:     80,
-    carX:      0.5,      // 0-1 horizontal position
+    status: 'ALERT',
+    score: 0,
+    speed: 80,
+    targetSpeed: 80,
+    carX: 0.5,
     driftAngle: 0,
-    driftDir:  1,
+    driftDir: 1,
     roadOffset: 0,
-    trees:     [],
-    clouds:    []
+    shake: 0,
+    trees: [],
+    clouds: []
 };
 
-// Initialize trees and clouds
-for (let i = 0; i < 8; i++) {
-    simState.trees.push({ x: Math.random() < 0.5 ? 0.05 + Math.random()*0.1 : 0.85 + Math.random()*0.1, y: Math.random(), type: Math.floor(Math.random()*3) });
-    simState.clouds.push({ x: Math.random(), y: 0.05 + Math.random()*0.2, speed: 0.0002 + Math.random()*0.0003, size: 40 + Math.random()*60 });
+// Trees
+for (let i = 0; i < 10; i++) {
+    simState.trees.push({
+        x: Math.random() < 0.5
+            ? 0.05 + Math.random() * 0.1
+            : 0.85 + Math.random() * 0.1,
+        y: Math.random(),
+        type: Math.floor(Math.random() * 3)
+    });
+}
+
+// Clouds
+for (let i = 0; i < 6; i++) {
+    simState.clouds.push({
+        x: Math.random(),
+        y: 0.05 + Math.random() * 0.2,
+        speed: 0.0002 + Math.random() * 0.0003,
+        size: 40 + Math.random() * 80
+    });
 }
 
 // ================================================
 // DRAW ROAD
 // ================================================
 function drawRoad() {
+
     const W = roadCanvas.width;
     const H = roadCanvas.height;
+
     rc.clearRect(0, 0, W, H);
 
-    // Sky gradient
+    const shakeX = (Math.random() - 0.5) * simState.shake;
+    const shakeY = (Math.random() - 0.5) * simState.shake;
+
+    rc.save();
+    rc.translate(shakeX, shakeY);
+
+    // SKY
     const sky = rc.createLinearGradient(0, 0, 0, H * 0.55);
-    sky.addColorStop(0, '#0a1628');
-    sky.addColorStop(1, '#1a3a5c');
+    sky.addColorStop(0, '#081120');
+    sky.addColorStop(1, '#16375c');
+
     rc.fillStyle = sky;
     rc.fillRect(0, 0, W, H * 0.55);
 
-    // Stars
+    // STARS
     rc.fillStyle = 'rgba(255,255,255,0.6)';
-    for (let i = 0; i < 30; i++) {
+
+    for (let i = 0; i < 40; i++) {
+
         const sx = (i * 137.5 + simState.roadOffset * 0.1) % W;
         const sy = ((i * 73.1) % (H * 0.45));
+
         rc.beginPath();
-        rc.arc(sx, sy, 0.8, 0, Math.PI * 2);
+        rc.arc(sx, sy, 1, 0, Math.PI * 2);
         rc.fill();
     }
 
-    // Clouds
+    // CLOUDS
     simState.clouds.forEach(cloud => {
+
         cloud.x = (cloud.x + cloud.speed) % 1.1;
+
         const cx = cloud.x * W;
         const cy = cloud.y * H;
-        rc.fillStyle = 'rgba(100,150,200,0.15)';
+
+        rc.fillStyle = 'rgba(120,150,200,0.12)';
+
         rc.beginPath();
         rc.ellipse(cx, cy, cloud.size, cloud.size * 0.4, 0, 0, Math.PI * 2);
         rc.fill();
     });
 
-    // Ground
+    // GROUND
     const ground = rc.createLinearGradient(0, H * 0.55, 0, H);
-    ground.addColorStop(0, '#1a2a1a');
-    ground.addColorStop(1, '#0d1a0d');
+
+    ground.addColorStop(0, '#173117');
+    ground.addColorStop(1, '#081508');
+
     rc.fillStyle = ground;
     rc.fillRect(0, H * 0.55, W, H * 0.45);
 
-    // Road perspective
-    const roadLeft  = W * 0.15;
+    // ROAD
+    const roadLeft = W * 0.15;
     const roadRight = W * 0.85;
+
     const vanX = W * (0.5 + (simState.carX - 0.5) * 0.3);
     const vanY = H * 0.55;
 
     const roadGrad = rc.createLinearGradient(0, vanY, 0, H);
+
     roadGrad.addColorStop(0, '#2a2a2a');
-    roadGrad.addColorStop(1, '#1a1a1a');
+    roadGrad.addColorStop(1, '#151515');
 
     rc.beginPath();
     rc.moveTo(vanX - 20, vanY);
@@ -469,13 +509,13 @@ function drawRoad() {
     rc.lineTo(roadRight, H);
     rc.lineTo(roadLeft, H);
     rc.closePath();
+
     rc.fillStyle = roadGrad;
     rc.fill();
 
-    // Road border lines
+    // ROAD BORDERS
     rc.strokeStyle = '#ffcc00';
     rc.lineWidth = 3;
-    rc.setLineDash([]);
 
     rc.beginPath();
     rc.moveTo(vanX - 20, vanY);
@@ -487,9 +527,10 @@ function drawRoad() {
     rc.lineTo(roadRight, H);
     rc.stroke();
 
-    // Center dashed line
-    rc.strokeStyle = 'rgba(255,255,255,0.5)';
+    // CENTER DASH
+    rc.strokeStyle = 'rgba(255,255,255,0.7)';
     rc.lineWidth = 2;
+
     rc.setLineDash([20, 15]);
     rc.lineDashOffset = -(simState.roadOffset % 35);
 
@@ -497,330 +538,360 @@ function drawRoad() {
     rc.moveTo(vanX, vanY);
     rc.lineTo(W * 0.5, H);
     rc.stroke();
+
     rc.setLineDash([]);
 
-    // Lane guide lines
-    const laneColors = simState.status === 'DROWSY' ? 'rgba(255,51,51,0.6)' : 'rgba(255,255,255,0.15)';
-    rc.strokeStyle = laneColors;
-    rc.lineWidth = 1;
-    rc.setLineDash([10, 20]);
-
-    [-0.25, 0.25].forEach(offset => {
-        rc.beginPath();
-        rc.moveTo(vanX + offset * 40, vanY);
-        rc.lineTo(W * (0.5 + offset * 0.5), H);
-        rc.stroke();
-    });
-    rc.setLineDash([]);
-
-    // Trees
+    // TREES
     simState.trees.forEach(tree => {
+
         const tx = tree.x * W;
         const ty = H * 0.52 + tree.y * H * 0.48;
+
         const scale = 0.3 + tree.y * 0.7;
 
-        // Trunk
         rc.fillStyle = '#4a3728';
         rc.fillRect(tx - 4 * scale, ty - 30 * scale, 8 * scale, 30 * scale);
 
-        // Leaves
         const colors = ['#1a4a1a', '#2a6a2a', '#1a5a2a'];
+
         rc.fillStyle = colors[tree.type];
+
         rc.beginPath();
         rc.arc(tx, ty - 35 * scale, 20 * scale, 0, Math.PI * 2);
         rc.fill();
-        rc.beginPath();
-        rc.arc(tx - 12 * scale, ty - 25 * scale, 14 * scale, 0, Math.PI * 2);
-        rc.fill();
-        rc.beginPath();
-        rc.arc(tx + 12 * scale, ty - 25 * scale, 14 * scale, 0, Math.PI * 2);
-        rc.fill();
     });
 
+    // ================================================
     // CAR
+    // ================================================
+
     const carScreenX = W * simState.carX;
     const carY = H * 0.78;
-    const carW = 70, carH = 38;
 
-    // Car shadow
-    rc.fillStyle = 'rgba(0,0,0,0.4)';
+    const carW = 72;
+    const carH = 40;
+
+    // SHADOW
+    rc.fillStyle = 'rgba(0,0,0,0.45)';
+
     rc.beginPath();
-    rc.ellipse(carScreenX, carY + carH/2 + 5, carW * 0.6, 8, 0, 0, Math.PI * 2);
+    rc.ellipse(carScreenX, carY + 25, 38, 10, 0, 0, Math.PI * 2);
     rc.fill();
-
-    // Car body
-    const carGrad = rc.createLinearGradient(carScreenX - carW/2, carY - carH/2, carScreenX + carW/2, carY + carH/2);
-    if (simState.status === 'DROWSY') {
-        carGrad.addColorStop(0, '#cc2222');
-        carGrad.addColorStop(1, '#881111');
-    } else if (simState.status === 'TIRED') {
-        carGrad.addColorStop(0, '#cc8800');
-        carGrad.addColorStop(1, '#886600');
-    } else {
-        carGrad.addColorStop(0, '#2244cc');
-        carGrad.addColorStop(1, '#113399');
-    }
 
     rc.save();
+
     rc.translate(carScreenX, carY);
+
     rc.rotate(simState.driftAngle * Math.PI / 180);
 
-    // Body
-    rc.fillStyle = carGrad.toString ? carGrad : '#2244cc';
+    // BODY
+    const bodyGrad = rc.createLinearGradient(-40, -20, 40, 20);
+
+    if (simState.status === 'DROWSY') {
+
+        bodyGrad.addColorStop(0, '#ff3333');
+        bodyGrad.addColorStop(1, '#990000');
+
+    } else if (simState.status === 'TIRED') {
+
+        bodyGrad.addColorStop(0, '#ffaa00');
+        bodyGrad.addColorStop(1, '#aa6600');
+
+    } else {
+
+        bodyGrad.addColorStop(0, '#3377ff');
+        bodyGrad.addColorStop(1, '#1133aa');
+    }
+
+    rc.fillStyle = bodyGrad;
+
     rc.beginPath();
-    rc.roundRect(-carW/2, -carH/2, carW, carH, 8);
+    rc.roundRect(-carW/2, -carH/2, carW, carH, 12);
     rc.fill();
 
-    // Roof
-    rc.fillStyle = 'rgba(0,0,0,0.3)';
+    // ROOF
+    rc.fillStyle = 'rgba(255,255,255,0.15)';
+
     rc.beginPath();
-    rc.roundRect(-carW/4, -carH/2 - 16, carW/2, 18, 4);
+    rc.roundRect(-18, -32, 36, 18, 6);
     rc.fill();
 
-    // Windshield
-    rc.fillStyle = 'rgba(100,200,255,0.4)';
+    // WINDSHIELD
+    rc.fillStyle = 'rgba(120,220,255,0.35)';
+
     rc.beginPath();
-    rc.roundRect(-carW/4 + 2, -carH/2 - 14, carW/2 - 4, 14, 3);
+    rc.roundRect(-15, -29, 30, 14, 4);
     rc.fill();
 
-    // Headlights
-    rc.fillStyle = simState.status === 'DROWSY' ? '#ff3333' : '#ffff88';
-    rc.shadowColor = simState.status === 'DROWSY' ? '#ff0000' : '#ffff00';
-    rc.shadowBlur = 15;
-    [-carW/2 + 8, carW/2 - 8].forEach(lx => {
+    // HEADLIGHTS
+    rc.fillStyle =
+        simState.status === 'DROWSY'
+            ? '#ff5555'
+            : '#ffffaa';
+
+    rc.shadowColor =
+        simState.status === 'DROWSY'
+            ? '#ff0000'
+            : '#ffff00';
+
+    rc.shadowBlur = 20;
+
+    [-28, 28].forEach(x => {
+
         rc.beginPath();
-        rc.arc(lx, 0, 5, 0, Math.PI * 2);
+        rc.arc(x, 0, 6, 0, Math.PI * 2);
         rc.fill();
     });
+
     rc.shadowBlur = 0;
 
-    // Wheels
+    // WHEELS
     rc.fillStyle = '#111';
-    [[-carW/2 + 12, carH/2 - 2], [carW/2 - 12, carH/2 - 2],
-     [-carW/2 + 12, -carH/2 + 2], [carW/2 - 12, -carH/2 + 2]].forEach(([wx, wy]) => {
+
+    [[-26, -18], [26, -18], [-26, 18], [26, 18]].forEach(([x, y]) => {
+
         rc.beginPath();
-        rc.ellipse(wx, wy, 10, 6, 0, 0, Math.PI * 2);
+        rc.ellipse(x, y, 10, 6, 0, 0, Math.PI * 2);
         rc.fill();
-        rc.strokeStyle = '#333';
-        rc.lineWidth = 1;
-        rc.stroke();
     });
 
     rc.restore();
 
-    // Skid marks when drowsy
-    if (simState.status === 'DROWSY' && simState.driftAngle > 2) {
-        rc.strokeStyle = 'rgba(50,30,10,0.4)';
-        rc.lineWidth = 4;
-        rc.setLineDash([8, 6]);
-        rc.beginPath();
-        rc.moveTo(carScreenX - 20, carY + carH/2);
-        rc.lineTo(carScreenX - 20 + simState.driftAngle * 5, carY + carH/2 + 30);
-        rc.moveTo(carScreenX + 20, carY + carH/2);
-        rc.lineTo(carScreenX + 20 + simState.driftAngle * 5, carY + carH/2 + 30);
-        rc.stroke();
-        rc.setLineDash([]);
-    }
-
-    // Brake lights
+    // BRAKE LIGHTS
     if (simState.status === 'DROWSY') {
-        rc.save();
-        rc.translate(carScreenX, carY);
-        rc.fillStyle = 'rgba(255,0,0,0.8)';
+
+        rc.fillStyle = 'rgba(255,0,0,0.9)';
         rc.shadowColor = '#ff0000';
-        rc.shadowBlur = 20;
-        [-carW/2 + 5, carW/2 - 5].forEach(bx => {
-            rc.beginPath();
-            rc.arc(bx, 0, 6, 0, Math.PI * 2);
-            rc.fill();
-        });
-        rc.restore();
+        rc.shadowBlur = 25;
+
+        rc.beginPath();
+        rc.arc(carScreenX - 25, carY + 3, 6, 0, Math.PI * 2);
+        rc.fill();
+
+        rc.beginPath();
+        rc.arc(carScreenX + 25, carY + 3, 6, 0, Math.PI * 2);
+        rc.fill();
+
+        rc.shadowBlur = 0;
     }
 
-    simState.roadOffset += simState.speed * 0.05;
+    // SKID MARKS
+    if (simState.status === 'DROWSY') {
+
+        rc.strokeStyle = 'rgba(40,20,10,0.4)';
+        rc.lineWidth = 4;
+
+        rc.beginPath();
+
+        rc.moveTo(carScreenX - 20, carY + 25);
+        rc.lineTo(carScreenX - 25, carY + 55);
+
+        rc.moveTo(carScreenX + 20, carY + 25);
+        rc.lineTo(carScreenX + 25, carY + 55);
+
+        rc.stroke();
+    }
+
+    rc.restore();
+
+    simState.roadOffset += simState.speed * 0.08;
 }
 
 // ================================================
-// SPEEDOMETER CANVAS
+// SPEEDOMETER
 // ================================================
 const speedCanvas = document.getElementById('speedCanvas');
 const sc = speedCanvas.getContext('2d');
 
 function drawSpeedometer(speed) {
-    const W = speedCanvas.width, H = speedCanvas.height;
+
+    const W = speedCanvas.width;
+    const H = speedCanvas.height;
+
     sc.clearRect(0, 0, W, H);
 
-    const cx = W/2, cy = H * 0.85, r = H * 0.7;
+    const cx = W/2;
+    const cy = H * 0.85;
+    const r = H * 0.7;
 
-    // Background arc
     sc.beginPath();
     sc.arc(cx, cy, r, Math.PI, 2 * Math.PI);
+
     sc.lineWidth = 14;
     sc.strokeStyle = 'rgba(255,255,255,0.06)';
     sc.stroke();
 
-    // Colored zones
-    const zones = [
-        { start: 0,   end: 0.4, color: 'rgba(0,255,136,0.2)' },
-        { start: 0.4, end: 0.7, color: 'rgba(255,170,0,0.2)' },
-        { start: 0.7, end: 1.0, color: 'rgba(255,51,51,0.2)' },
-    ];
-    zones.forEach(z => {
-        sc.beginPath();
-        sc.arc(cx, cy, r, Math.PI + z.start * Math.PI, Math.PI + z.end * Math.PI);
-        sc.lineWidth = 14;
-        sc.strokeStyle = z.color;
-        sc.stroke();
-    });
+    const angle =
+        Math.PI +
+        (Math.min(speed, 120) / 120) * Math.PI;
 
-    // Speed fill
-    const maxSpeed = 120;
-    const angle = Math.PI + (Math.min(speed, maxSpeed) / maxSpeed) * Math.PI;
-    let color = speed < 50 ? '#00ff88' : speed < 90 ? '#ffaa00' : '#ff3333';
+    let color =
+        speed < 50
+            ? '#00ff88'
+            : speed < 90
+            ? '#ffaa00'
+            : '#ff3333';
 
     sc.beginPath();
     sc.arc(cx, cy, r, Math.PI, angle);
+
     sc.lineWidth = 14;
-    sc.strokeStyle = color;
     sc.lineCap = 'round';
+
+    sc.strokeStyle = color;
     sc.shadowColor = color;
     sc.shadowBlur = 12;
+
     sc.stroke();
+
     sc.shadowBlur = 0;
 
-    // Speed text
     sc.fillStyle = color;
     sc.font = 'bold 32px Segoe UI';
     sc.textAlign = 'center';
+
     sc.fillText(Math.round(speed), cx, cy - 18);
 
-    sc.fillStyle = 'rgba(255,255,255,0.3)';
+    sc.fillStyle = 'rgba(255,255,255,0.35)';
     sc.font = '11px Segoe UI';
-    sc.fillText('km/h', cx, cy - 2);
 
-    sc.fillStyle = 'rgba(255,255,255,0.2)';
-    sc.font = '9px Segoe UI';
-    sc.fillText('0', cx - r + 8, cy + 5);
-    sc.fillText('120', cx + r - 14, cy + 5);
+    sc.fillText('km/h', cx, cy - 2);
 }
 
-drawSpeedometer(80);
-
 // ================================================
-// UPDATE SIMULATION FROM STATS
+// UPDATE SIMULATION
 // ================================================
 function updateSimulation(data) {
-    const score  = data.score;
+
+    const score = data.score;
     const status = data.status;
+
     simState.status = status;
-    simState.score  = score;
+    simState.score = score;
 
-    // Speed based on status
-    let targetSpeed;
-    if (status === 'DROWSY')      targetSpeed = 20 + Math.random() * 10;
-    else if (status === 'TIRED')  targetSpeed = 55 + Math.random() * 10;
-    else                          targetSpeed = 75 + Math.random() * 10;
-
-    simState.speed += (targetSpeed - simState.speed) * 0.05;
-
-    // Drift based on status
-    let targetDrift;
+    // SPEED
     if (status === 'DROWSY') {
-        targetDrift = simState.driftDir * (5 + score * 0.15);
-        if (Math.abs(simState.carX - 0.5) > 0.25) simState.driftDir *= -1;
-        simState.carX += simState.driftDir * 0.002;
-    } else {
-        targetDrift = 0;
-        simState.carX += (0.5 - simState.carX) * 0.05;
-    }
 
-    simState.driftAngle += (targetDrift - simState.driftAngle) * 0.08;
-    simState.carX = Math.max(0.2, Math.min(0.8, simState.carX));
+        simState.targetSpeed = 20;
 
-    // Update road status
-    const roadStatusEl = document.getElementById('roadStatus');
-    const warnBanner   = document.getElementById('warningBanner');
-    if (status === 'DROWSY') {
-        roadStatusEl.textContent = '⚠️ DROWSY — DANGER!';
-        roadStatusEl.className   = 'road-status drowsy';
-        warnBanner.style.display = 'block';
     } else if (status === 'TIRED') {
-        roadStatusEl.textContent = '😴 TIRED — CAUTION';
-        roadStatusEl.className   = 'road-status tired';
-        warnBanner.style.display = 'none';
+
+        simState.targetSpeed = 55;
+
     } else {
-        roadStatusEl.textContent = '✅ ALERT — SAFE TO DRIVE';
-        roadStatusEl.className   = 'road-status alert';
-        warnBanner.style.display = 'none';
+
+        simState.targetSpeed = 80;
     }
 
-    // Warning lights
-    document.getElementById('lightDrowsy').classList.toggle('active', status === 'DROWSY');
-    document.getElementById('lightDrowsy').classList.toggle('red',    status === 'DROWSY');
-    document.getElementById('lightYawn').classList.toggle('active',   data.yawn_status === 'YAWNING');
-    document.getElementById('lightYawn').classList.toggle('orange',   data.yawn_status === 'YAWNING');
-    document.getElementById('lightDrift').classList.toggle('active',  Math.abs(simState.driftAngle) > 2);
-    document.getElementById('lightDrift').classList.toggle('yellow',  Math.abs(simState.driftAngle) > 2);
-    document.getElementById('lightBrake').classList.toggle('active',  status === 'DROWSY');
-    document.getElementById('lightBrake').classList.toggle('red',     status === 'DROWSY');
+    simState.speed +=
+        (simState.targetSpeed - simState.speed) * 0.03;
 
-    // Stats
-    document.getElementById('statSpeed').textContent = Math.round(simState.speed);
-    document.getElementById('statSpeed').style.color = simState.speed < 40 ? '#ff3333' : simState.speed < 70 ? '#ffaa00' : '#00ff88';
-    document.getElementById('statDrift').textContent = Math.abs(simState.driftAngle).toFixed(1) + '°';
-    document.getElementById('statDrift').style.color = Math.abs(simState.driftAngle) > 3 ? '#ff3333' : '#00d4ff';
+    // DRIFT
+    let targetDrift = 0;
 
-    const reactTime = status === 'DROWSY' ? (1.5 + score * 0.02).toFixed(1) : status === 'TIRED' ? '0.8' : '0.3';
-    document.getElementById('statReact').textContent = reactTime + 's';
-    document.getElementById('statReact').style.color = parseFloat(reactTime) > 1 ? '#ff3333' : parseFloat(reactTime) > 0.6 ? '#ffaa00' : '#00ff88';
+    if (status === 'DROWSY') {
 
-    const riskLevel = status === 'DROWSY' ? 'HIGH' : status === 'TIRED' ? 'MED' : 'LOW';
-    document.getElementById('statRisk').textContent = riskLevel;
-    document.getElementById('statRisk').style.color = riskLevel === 'HIGH' ? '#ff3333' : riskLevel === 'MED' ? '#ffaa00' : '#00ff88';
+        const driftStrength = 2 + (score * 0.06);
 
-    // Risk bars
-    const crashRisk = Math.min(score * 0.8, 95);
-    const laneDev   = Math.min(Math.abs(simState.driftAngle) * 8, 100);
-    const reactPct  = status === 'DROWSY' ? 85 : status === 'TIRED' ? 45 : 10;
+        targetDrift =
+            simState.driftDir *
+            driftStrength *
+            Math.sin(Date.now() * 0.002);
 
-    const getBarColor = v => v < 30 ? '#00ff88' : v < 60 ? '#ffaa00' : '#ff3333';
+        if (Math.abs(simState.carX - 0.5) > 0.22) {
+            simState.driftDir *= -1;
+        }
 
-    document.getElementById('crashRiskPct').textContent = Math.round(crashRisk) + '%';
-    document.getElementById('crashRiskPct').style.color = getBarColor(crashRisk);
-    document.getElementById('crashRiskBar').style.width = crashRisk + '%';
-    document.getElementById('crashRiskBar').style.background = getBarColor(crashRisk);
+        simState.carX +=
+            simState.driftDir *
+            (0.0008 + score * 0.00003);
 
-    document.getElementById('laneDevPct').textContent = Math.round(laneDev) + '%';
-    document.getElementById('laneDevPct').style.color = getBarColor(laneDev);
-    document.getElementById('laneDevBar').style.width = laneDev + '%';
-    document.getElementById('laneDevBar').style.background = getBarColor(laneDev);
+        simState.shake = 4;
 
-    document.getElementById('reactTimePct').textContent = status === 'DROWSY' ? 'SLOW' : status === 'TIRED' ? 'REDUCED' : 'Normal';
-    document.getElementById('reactTimePct').style.color = getBarColor(reactPct);
-    document.getElementById('reactTimeBar').style.width = reactPct + '%';
-    document.getElementById('reactTimeBar').style.background = getBarColor(reactPct);
+    } else if (status === 'TIRED') {
 
-    // Auto brake & emergency
-    document.getElementById('autoBrake').style.display    = status === 'DROWSY' ? 'block' : 'none';
-    document.getElementById('emergencyPanel').classList.toggle('show', status === 'DROWSY');
+        targetDrift =
+            Math.sin(Date.now() * 0.0015) * 1.5;
 
-    // Speedometer
+        simState.carX +=
+            Math.sin(Date.now() * 0.001) * 0.0005;
+
+        simState.shake = 1;
+
+    } else {
+
+        targetDrift = 0;
+
+        simState.carX +=
+            (0.5 - simState.carX) * 0.03;
+
+        simState.shake = 0;
+    }
+
+    simState.driftAngle +=
+        (targetDrift - simState.driftAngle) * 0.08;
+
+    simState.carX =
+        Math.max(0.2, Math.min(0.8, simState.carX));
+
     drawSpeedometer(simState.speed);
+
+    // STATUS
+    const roadStatusEl =
+        document.getElementById('roadStatus');
+
+    const warnBanner =
+        document.getElementById('warningBanner');
+
+    if (status === 'DROWSY') {
+
+        roadStatusEl.textContent =
+            '⚠️ DROWSY — DANGER!';
+
+        roadStatusEl.className =
+            'road-status drowsy';
+
+        warnBanner.style.display = 'block';
+
+    } else if (status === 'TIRED') {
+
+        roadStatusEl.textContent =
+            '😴 TIRED — CAUTION';
+
+        roadStatusEl.className =
+            'road-status tired';
+
+        warnBanner.style.display = 'none';
+
+    } else {
+
+        roadStatusEl.textContent =
+            '✅ ALERT — SAFE TO DRIVE';
+
+        roadStatusEl.className =
+            'road-status alert';
+
+        warnBanner.style.display = 'none';
+    }
 }
 
 // ================================================
 // ANIMATION LOOP
 // ================================================
 function animate() {
+
     drawRoad();
+
     requestAnimationFrame(animate);
 }
+
 animate();
 
 // ================================================
-// FETCH STATS FROM MAIN APP
+// FETCH STATS
 // ================================================
 function fetchStats() {
+
     fetch('/stats')
         .then(r => r.json())
         .then(data => updateSimulation(data))
@@ -828,7 +899,9 @@ function fetchStats() {
 }
 
 fetchStats();
-setInterval(fetchStats, 800);
+
+setInterval(fetchStats, 200);
+
 </script>
 </body>
 </html>
